@@ -41,11 +41,53 @@ apt autoremove -y
 }
 
 install_rancher() {
-  clear  
-  echo "Installing Rancher Manager using Helm... \n Fetching all the avaialble version from upstream \n \n"
-  get_rancher_version
-  echo "$RANCHER_VERSION"
-  sleep 3
+clear  
+echo "Installing Rancher Manager using Helm... \n Fetching all the avaialble version from upstream \n \n"
+get_rancher_version
+echo "$RANCHER_VERSION"
+sleep 3
+
+ ### Rancher Server Installation
+
+
+# Adding Helm-3
+
+curl -#L https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# add needed helm charts
+helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+helm repo add jetstack https://charts.jetstack.io
+
+
+
+# still on  rancher1 master, worker not configured yet
+# add the cert-manager CRD
+kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.6.1/cert-manager.crds.yaml
+
+# helm install jetstack
+helm upgrade -i cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace
+
+
+### Installing Rancher Server
+
+
+read -p "Enter your hostname: " hostname_rancher
+echo Your provided hostname is $hostname_rancher
+
+read -p "Password: " password_rancher
+
+### To install specific version rancher
+## Get rancher version first
+# helm search repo rancher-latest --versions
+
+helm upgrade -i rancher rancher-latest/rancher --version $RANCHER_VERSION  --create-namespace --namespace cattle-system --set hostname=${hostname_rancher} --set bootstrapPassword=${password_rancher} --set replicas=1
+sleep 5
+
+kubectl get pods -A
+
+# Verify Rancher installation
+kubectl -n cattle-system rollout status deploy/rancher
+
 }
 
 get_rancher_version () {
@@ -71,8 +113,13 @@ get_rancher_version () {
 
 
 docker_rancher() {
-  echo "Installing Rancher Manager using Docker..."
-  # Add your installation logic for Rancher Manager using Docker here
+echo "Installing Rancher Manager using Docker..."
+curl -fsSL get.docker.com | bash
+systemctl enable docker
+docker run --privileged -d --restart=no -p 8080:80 -p 8443:443 -p 36443:6443 -v rancher:/var/lib/rancher  rancher/rancher
+
+  
+
 }
 
 
@@ -87,6 +134,13 @@ install_rke() {
   get_rke_version
   echo "$RKE_VERSION"
   sleep 3
+  # Download and install RKE binary
+  RKE_DOWNLOAD_URL="https://github.com/rancher/rke/releases/download/$RKE_VERSION/rke_linux-amd64"
+  curl -LO $RKE_DOWNLOAD_URL
+  sudo install rke_linux-amd64 /usr/local/bin/rke
+
+  # Verify RKE installation
+  rke --version
 }
 
 
@@ -122,12 +176,37 @@ function get_rke_version {
 
 
 install_rke2_apt_get() {
-  clear
-  echo "Installing RKE2 Server using apt... \n Fetching all the avaialble version from upstream \n \n"
-  # Add your installation logic for RKE2 Server using apt here
-  get_rke2_version
-  echo "$RKE2_VERSION"
-  sleep 2
+clear
+echo "Installing RKE2 Server using apt... \n Fetching all the avaialble version from upstream \n \n"
+# Add your installation logic for RKE2 Server using apt here
+get_rke2_version
+echo "$RKE2_VERSION"
+sleep 2
+
+## Using script not apt
+# On rancher1
+curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE=server INSTALL_RKE2_CHANNEL=$RKE2_VERSION sh -
+
+# start and enable for restarts -
+systemctl enable --now rke2-server.service
+
+systemctl status rke2-server --no-pager
+
+cp $(find /var/lib/rancher/rke2/data/ -name kubectl) /usr/local/bin/kubectl
+chmod +x /usr/local/bin/kubectl
+
+mkdir ~/.kube/
+cp /etc/rancher/rke2/rke2.yaml  ~/.kube/config
+
+
+kubectl version --short
+
+kubectl get node -o wide
+
+kubectl get pods -A
+
+
+
 }
 
 # Function to display menu for all avaialble RKE2 version and get user's choice
@@ -165,6 +244,11 @@ install_k3s() {
   get_k3s_version
   echo "$K3S_VERSION"
   sleep 2
+
+  curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=$K3S_VERSION sh -
+
+  # Verify k3s installation
+  sudo k3s kubectl get nodes
 }
 
 function get_k3s_version {
@@ -205,7 +289,9 @@ get_kubectl_version () {
 
   # Append "stable" option by fetching the stable version from the given URL
   STABLE_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
-  VERSIONS+=" stable"
+  #VERSIONS+=" stable"
+  VERSIONS="Stable $VERSIONS"
+
 
   # Display menu of available versions
   echo "Please select a kubectl version or use option 1 for stable version: \n"
