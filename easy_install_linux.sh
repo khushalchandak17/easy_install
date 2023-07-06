@@ -381,9 +381,9 @@ while true; do
     7) install_tools ;;
     8) configure_dns ;;
     9) uninstall ;;
-    10) exit 0 ;;
+    10) clear && exit 0 ;;
     *) invalid ;;
     # *) echo "Invalid option. Please try again." ;;
   esac
 done
-clear
+
