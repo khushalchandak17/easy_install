@@ -45,7 +45,7 @@ install_rancher() {
 clear  
 echo -e "Installing Rancher Manager using Helm... \n Fetching all the avaialble version from upstream \n \n"
 get_rancher_version
-echo "$RANCHER_VERSION"
+echo "Installing Rancher $RANCHER_VERSION"
 sleep 3
 
  ### Rancher Server Installation
@@ -179,7 +179,18 @@ function get_rke_version {
 
 install_rke2_apt_get() {
 clear
-echo -e "Installing RKE2 Server using apt... \n Fetching all the avaialble version from upstream \n \n"
+
+architecture=$(uname -m)
+
+if [ "$architecture" == "x86_64" ]; then
+    echo "AMD architecture detected. Continuing with AMD-specific actions..."
+    # Add your AMD-specific commands or actions here
+else
+    echo "Unsupported architecture detected. Quitting..."
+    exit 1
+fi
+
+echo -e "Installing RKE2 Server ... \n Fetching all the avaialble version from upstream \n \n"
 # Add your installation logic for RKE2 Server using apt here
 get_rke2_version
 echo "$RKE2_VERSION"
@@ -190,6 +201,7 @@ sleep 2
 curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE=server INSTALL_RKE2_CHANNEL=$RKE2_VERSION sh -
 
 # start and enable for restarts -
+echo -e "\n initializing  RKE2 Server"
 systemctl enable --now rke2-server.service
 
 systemctl status rke2-server --no-pager
@@ -204,7 +216,7 @@ cp /etc/rancher/rke2/rke2.yaml  ~/.kube/config
 kubectl version --short
 
 kubectl get node -o wide
-
+sleep 8
 
 for i in $(kubectl get deploy -n kube-system --no-headers | awk '{print $1}'); do  kubectl -n kube-system rollout status deploy $i; done
 
@@ -287,9 +299,23 @@ install_tools() {
   echo -e "Installing Helm/kubectl... \n Fetching all the avaialble version from upstream \n \n"
 
   get_kubectl_version
-  echo "$KUBECTL_VERSION"
+  echo "Installing Kubectl $KUBECTL_VERSION"
   sleep 3
-  
+
+##KUBECTL_VERSION="v1.22.0"
+architecture=$(uname -m)
+
+if [ "$architecture" == "x86_64" ]; then
+    echo "AMD architecture detected. Continuing with AMD-specific actions..."
+    curl -LO "https://dl.k8s.io/release/$KUBECTL_VERSION/bin/linux/amd64/kubectl"
+else
+    echo "ARM architecture detected. Continuing with ARM-specific actions..."
+    curl -LO "https://dl.k8s.io/release/$KUBECTL_VERSION/bin/linux/arm64/kubectl"
+fi
+
+  install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+  kubectl version --client
+  sleep 5
 }
 
 get_kubectl_version () {
@@ -302,6 +328,8 @@ get_kubectl_version () {
   #VERSIONS+=" stable"
   VERSIONS="Stable $VERSIONS"
 
+  
+
 
   # Display menu of available versions
   echo -e "Please select a kubectl version or use option 1 for stable version: \n"
@@ -312,7 +340,7 @@ get_kubectl_version () {
   done
 
   # Set KUBECTL_VERSION variable based on the selected version
-  if [ "$VERSION" == "stable" ]; then
+  if [ "$VERSION" == "Stable" ]; then
     KUBECTL_VERSION=$STABLE_VERSION
   else
     KUBECTL_VERSION=$VERSION
@@ -358,3 +386,4 @@ while true; do
     # *) echo "Invalid option. Please try again." ;;
   esac
 done
+clear
