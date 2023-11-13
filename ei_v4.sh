@@ -154,9 +154,70 @@ fi
   # Verify RKE installation
   rke --version
   sleep 3
+  ssh_config_rke
+
+  sleep 1
+
+  rke config
+  rke up
+  mkdir ~/.kube
+  cp kube_config_cluster.yml ~/.kube/config
+
+  sleep 5
+
+kubectl cluster-info
+kubectl get nodes
+kubectl get cs
 }
 
+function ssh_config_rke {
 
+ufw disable
+swapoff -a; sed -i '/swap/d' /etc/fstab
+
+cat >>/etc/sysctl.d/kubernetes.conf<<EOF
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+sysctl --system
+
+
+# Define the key type and key size
+KEY_TYPE="rsa"
+KEY_SIZE="2048"
+
+# Define the key file paths
+PRIVATE_KEY_PATH="$HOME/.ssh/id_rsa"
+PUBLIC_KEY_PATH="$HOME/.ssh/id_rsa.pub"
+AUTHORIZED_KEYS_PATH="$HOME/.ssh/authorized_keys"
+
+# Check if the SSH key pair already exists
+#if [ -f "$PRIVATE_KEY_PATH" ]; then
+#    echo "SSH key pair already exists at $PRIVATE_KEY_PATH"
+#    exit 1
+#fi
+
+# Generate a new SSH key pair or overwirte
+
+ssh-keygen -t "$KEY_TYPE" -b "$KEY_SIZE" -f "$PRIVATE_KEY_PATH" -N "" -q
+# Check if the key generation was successful
+if [ $? -ne 0 ]; then
+    echo "Failed to generate SSH key pair"
+    exit 1
+fi
+
+# Append the public key to the authorized_keys file
+if [ -f "$AUTHORIZED_KEYS_PATH" ]; then
+    cat "$PUBLIC_KEY_PATH" >> "$AUTHORIZED_KEYS_PATH"
+    echo "Public key appended to $AUTHORIZED_KEYS_PATH"
+else
+    echo "WARNING: authorized_keys file not found. Public key not added."
+fi
+
+# Display a success message
+echo "SSH key pair generated"
+
+}
 function get_rke_version {
   # Get list of available RKE versions from GitHub API
   VERSIONS_URL="https://api.github.com/repos/rancher/rke/releases"
