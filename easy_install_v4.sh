@@ -10,13 +10,14 @@ show_menu () {
   echo "4. Install RKE"
   echo "5. Install RKE2"
   echo "6. Install k3s"
-  echo "7. Install Helm/kubectl"
+  echo "7. Install kubectl"
   echo "8. Deploy DNS Server"
   echo "9. Uninstall All"
   echo "10. Create Rke2-config"
   echo "11. Deploy Private Image Registry"
   echo "12. Install Docker"
-  echo "13. Exit"
+  echo "13. Install Helm"
+  echo "14. Exit"
   read -p "Enter your choice [1-13]: " choice
 }
 
@@ -44,6 +45,11 @@ apt autoremove -y
 
 }
 
+install_helm() {
+
+curl -#L https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+}
 install_rancher() {
 clear
 echo -e "Installing Rancher Manager using Helm... \n Fetching all the avaialble version from upstream \n \n"
@@ -586,7 +592,8 @@ while true; do
     10) create_rke2_config ;;
     11) ./install_private_registry.sh  ;;
     12) ./install-docker.sh  ;;
-    13) clear && exit 0 ;;
+    13) install_helm ;;
+    14) clear && exit 0 ;;
     *) invalid ;;
     # *) echo "Invalid option. Please try again." ;;
   esac
