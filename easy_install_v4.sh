@@ -517,6 +517,7 @@ append_to_cni_section() {
 
 configure_dns() {
   echo "Deploying DNS server..."
+  ./install_dns.sh
 }
 
 
